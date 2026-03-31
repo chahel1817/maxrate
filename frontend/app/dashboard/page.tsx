@@ -217,9 +217,14 @@ export default function DashboardPage() {
                                 ))}
                             </svg>
                             <div className="flex justify-between mt-6 px-1">
-                                {['12:00', '12:05', '12:10', '12:15', '12:20', '12:25', '12:30'].map(t => (
-                                    <span key={t} className="text-[9px] font-bold text-slate-600 uppercase tracking-widest">{t} PM</span>
-                                ))}
+                                {Array.from({ length: 7 }).map((_, i) => {
+                                    const date = new Date();
+                                    date.setMinutes(date.getMinutes() - (30 - i * 5));
+                                    const timeStr = date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                                    return (
+                                        <span key={i} className="text-[9px] font-bold text-slate-600 uppercase tracking-widest">{timeStr}</span>
+                                    );
+                                })}
                             </div>
                         </div>
                     </motion.div>
@@ -261,8 +266,8 @@ export default function DashboardPage() {
                                             >
                                                 <td className="px-10 py-5">
                                                     <span className={`text-[10px] font-black px-2.5 py-1 rounded-lg border ${log.method === 'POST'
-                                                            ? 'border-brand-primary/30 text-brand-primary bg-brand-primary/5'
-                                                            : 'border-slate-800 text-slate-400 bg-slate-800/20'
+                                                        ? 'border-brand-primary/30 text-brand-primary bg-brand-primary/5'
+                                                        : 'border-slate-800 text-slate-400 bg-slate-800/20'
                                                         }`}>
                                                         {log.method}
                                                     </span>
@@ -280,12 +285,12 @@ export default function DashboardPage() {
                                                 </td>
                                                 <td className="px-10 py-5 text-right">
                                                     <div className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-xl border ${log.status === 'SUCCESS'
-                                                            ? 'text-brand-secondary bg-brand-secondary/5 border-brand-secondary/10'
-                                                            : 'text-brand-error bg-brand-error/5 border-brand-error/10 shadow-[0_0_15px_rgba(239,68,68,0.1)]'
+                                                        ? 'text-brand-secondary bg-brand-secondary/5 border-brand-secondary/10'
+                                                        : 'text-brand-error bg-brand-error/5 border-brand-error/10 shadow-[0_0_15px_rgba(239,68,68,0.1)]'
                                                         }`}>
                                                         <div className={`h-2 w-2 rounded-full ${log.status === 'SUCCESS'
-                                                                ? 'bg-brand-secondary shadow-[0_0_10px_rgba(34,197,94,0.3)]'
-                                                                : 'bg-brand-error animate-pulse shadow-[0_0_10px_rgba(239,68,68,0.4)]'
+                                                            ? 'bg-brand-secondary shadow-[0_0_10px_rgba(34,197,94,0.3)]'
+                                                            : 'bg-brand-error animate-pulse shadow-[0_0_10px_rgba(239,68,68,0.4)]'
                                                             }`} />
                                                         <span className="text-xs font-black">{log.code}</span>
                                                     </div>
