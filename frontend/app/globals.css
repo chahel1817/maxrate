@@ -1,0 +1,27 @@
+@import "tailwindcss";
+
+@layer base {
+  :root {
+    --background: #0f172a;
+    --foreground: #e2e8f0;
+    --card: #1e293b;
+    --primary: #6366f1;
+    --secondary: #22c55e;
+    --error: #ef4444;
+  }
+
+  body {
+    background-color: var(--background);
+    color: var(--foreground);
+    @apply antialiased;
+  }
+}
+
+@theme {
+  --color-brand-bg: #0f172a;
+  --color-brand-card: #1e293b;
+  --color-brand-primary: #6366f1;
+  --color-brand-secondary: #22c55e;
+  --color-brand-error: #ef4444;
+  --color-brand-text: #e2e8f0;
+}
