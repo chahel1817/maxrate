@@ -1,4 +1,11 @@
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
+const getApiBaseUrl = () => {
+    const url = process.env.NEXT_PUBLIC_API_URL;
+    if (!url) return "http://localhost:8080";
+    if (url.startsWith("http://") || url.startsWith("https://")) return url;
+    return `https://${url}`;
+};
+
+const API_BASE_URL = getApiBaseUrl();
 
 export const apiFetch = async (endpoint: string, options: any = {}) => {
     const url = `${API_BASE_URL}${endpoint}`;
