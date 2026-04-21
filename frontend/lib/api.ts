@@ -10,19 +10,25 @@ export const apiFetch = async (endpoint: string, options: any = {}) => {
         },
     });
 
-    if (!response.ok) {
-        let errorData;
-        try {
-            errorData = await response.json();
-        } catch {
-            const text = await response.text();
-            throw { error: text || `HTTP error! Status: ${response.status}`, messages: [text || "An unexpected error occurred"] };
-        }
-        throw errorData;
+    const text = await response.text();
+    let data;
+    try {
+        data = text ? JSON.parse(text) : {};
+    } catch {
+        data = null;
     }
 
-    const text = await response.text();
-    return text ? JSON.parse(text) : {};
+    if (!response.ok) {
+        if (data && (data.error || data.messages)) {
+            throw data;
+        }
+        throw {
+            error: text || `HTTP error! Status: ${response.status}`,
+            messages: [text || "An unexpected error occurred"]
+        };
+    }
+
+    return data || {};
 };
 
 export const registerUser = (data: any) => apiFetch("/auth/register", { method: "POST", body: JSON.stringify(data) });
