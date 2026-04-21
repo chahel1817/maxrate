@@ -1,4 +1,4 @@
-const API_BASE_URL = "http://localhost:8080";
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
 
 export const apiFetch = async (endpoint: string, options: any = {}) => {
     const url = `${API_BASE_URL}${endpoint}`;
@@ -11,8 +11,14 @@ export const apiFetch = async (endpoint: string, options: any = {}) => {
     });
 
     if (!response.ok) {
-        const errorBody = await response.text();
-        throw new Error(errorBody || `HTTP error! Status: ${response.status}`);
+        let errorData;
+        try {
+            errorData = await response.json();
+        } catch {
+            const text = await response.text();
+            throw { error: text || `HTTP error! Status: ${response.status}`, messages: [text || "An unexpected error occurred"] };
+        }
+        throw errorData;
     }
 
     const text = await response.text();
@@ -21,6 +27,7 @@ export const apiFetch = async (endpoint: string, options: any = {}) => {
 
 export const registerUser = (data: any) => apiFetch("/auth/register", { method: "POST", body: JSON.stringify(data) });
 export const loginUser = (data: any) => apiFetch("/auth/login", { method: "POST", body: JSON.stringify(data) });
+export const checkEmail = (email: string) => apiFetch(`/auth/check-email?email=${encodeURIComponent(email)}`);
 export const getStatsSummary = () => apiFetch("/analytics/summary");
 export const getLogs = () => apiFetch("/logs");
 export const getApiKey = (userId: number) => apiFetch(`/user/api-key?userId=${userId}`);

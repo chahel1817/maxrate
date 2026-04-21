@@ -36,6 +36,10 @@ public class AuthService {
         return "ak-" + UUID.randomUUID().toString().replace("-", "");
     }
 
+    public boolean emailExists(String email) {
+        return userRepository.findByEmail(email).isPresent();
+    }
+
     public Optional<User> findByApiKey(String apiKey) {
         return userRepository.findByApiKey(apiKey);
     }
