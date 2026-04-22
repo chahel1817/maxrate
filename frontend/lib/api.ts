@@ -1,8 +1,8 @@
 const getApiBaseUrl = () => {
-    const url = process.env.NEXT_PUBLIC_API_URL;
+    let url = process.env.NEXT_PUBLIC_API_URL;
     if (!url) return "http://localhost:8080";
-    if (url.startsWith("http://") || url.startsWith("https://")) return url;
-    return `https://${url}`;
+    if (!url.startsWith("http://") && !url.startsWith("https://")) url = `https://${url}`;
+    return url.replace(/\/+$/, ""); // Remove trailing slashes
 };
 
 const API_BASE_URL = getApiBaseUrl();
