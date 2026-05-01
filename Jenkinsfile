@@ -52,7 +52,8 @@ pipeline {
                             bat '''
                                 icacls "%SSH_KEY%" /inheritance:r
                                 icacls "%SSH_KEY%" /remove:g "BUILTIN\\Users" "Users" "Everyone" "Authenticated Users" 2>nul
-                                icacls "%SSH_KEY%" /grant:r "%USERDOMAIN%\\%USERNAME%:R"
+                                for /f "delims=" %%A in ('powershell -NoProfile -Command "[System.Security.Principal.WindowsIdentity]::GetCurrent().User.Value"') do set CURRENT_SID=%%A
+                                icacls "%SSH_KEY%" /grant:r "*%CURRENT_SID%:R"
                                 scp -i "%SSH_KEY%" -o StrictHostKeyChecking=no "%APP_JAR%" "%SSH_USER%@%EC2_HOST%:%DEPLOY_PATH%"
                                 if errorlevel 1 exit /b 1
                                 ssh -i "%SSH_KEY%" -o StrictHostKeyChecking=no "%SSH_USER%@%EC2_HOST%" "pkill -f 'java -jar' || true; JDBC_URL='%JDBC_URL%' DB_USER='%DB_USER%' DB_PASS='%DB_PASS%' nohup java -jar %DEPLOY_PATH% > /home/ubuntu/app.log 2>&1 &"
