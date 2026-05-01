@@ -37,23 +37,22 @@ pipeline {
         stage('Deploy to EC2') {
             steps {
                 withCredentials([
+                    sshUserPrivateKey(credentialsId: 'aws-ec2-ssh-key', keyFileVariable: 'SSH_KEY', usernameVariable: 'SSH_USER'),
                     string(credentialsId: 'maxrate-jdbc-url', variable: 'JDBC_URL'),
                     string(credentialsId: 'maxrate-db-user', variable: 'DB_USER'),
                     string(credentialsId: 'maxrate-db-pass', variable: 'DB_PASS')
                 ]) {
-                    sshagent(['aws-ec2-ssh-key']) {
-                        script {
-                            if (isUnix()) {
-                                sh '''
-                                    scp -o StrictHostKeyChecking=no "$APP_JAR" "$EC2_USER@$EC2_HOST:$DEPLOY_PATH"
-                                    ssh -o StrictHostKeyChecking=no "$EC2_USER@$EC2_HOST" "pkill -f 'java -jar' || true; JDBC_URL='$JDBC_URL' DB_USER='$DB_USER' DB_PASS='$DB_PASS' nohup java -jar $DEPLOY_PATH > /home/ubuntu/app.log 2>&1 &"
-                                '''
-                            } else {
-                                bat '''
-                                    scp -o StrictHostKeyChecking=no "%APP_JAR%" "%EC2_USER%@%EC2_HOST%:%DEPLOY_PATH%"
-                                    ssh -o StrictHostKeyChecking=no "%EC2_USER%@%EC2_HOST%" "pkill -f 'java -jar' || true; JDBC_URL='%JDBC_URL%' DB_USER='%DB_USER%' DB_PASS='%DB_PASS%' nohup java -jar %DEPLOY_PATH% > /home/ubuntu/app.log 2>&1 &"
-                                '''
-                            }
+                    script {
+                        if (isUnix()) {
+                            sh '''
+                                scp -i "$SSH_KEY" -o StrictHostKeyChecking=no "$APP_JAR" "$SSH_USER@$EC2_HOST:$DEPLOY_PATH"
+                                ssh -i "$SSH_KEY" -o StrictHostKeyChecking=no "$SSH_USER@$EC2_HOST" "pkill -f 'java -jar' || true; JDBC_URL='$JDBC_URL' DB_USER='$DB_USER' DB_PASS='$DB_PASS' nohup java -jar $DEPLOY_PATH > /home/ubuntu/app.log 2>&1 &"
+                            '''
+                        } else {
+                            bat '''
+                                scp -i "%SSH_KEY%" -o StrictHostKeyChecking=no "%APP_JAR%" "%SSH_USER%@%EC2_HOST%:%DEPLOY_PATH%"
+                                ssh -i "%SSH_KEY%" -o StrictHostKeyChecking=no "%SSH_USER%@%EC2_HOST%" "pkill -f 'java -jar' || true; JDBC_URL='%JDBC_URL%' DB_USER='%DB_USER%' DB_PASS='%DB_PASS%' nohup java -jar %DEPLOY_PATH% > /home/ubuntu/app.log 2>&1 &"
+                            '''
                         }
                     }
                 }
