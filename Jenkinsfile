@@ -45,19 +45,86 @@ pipeline {
                     script {
                         if (isUnix()) {
                             sh '''
+                                set -e
+                                cat > maxrate.env <<EOF
+JDBC_URL=$JDBC_URL
+DB_USER=$DB_USER
+DB_PASS=$DB_PASS
+PORT=8080
+EOF
+                                cat > maxrate.service <<EOF
+[Unit]
+Description=MaxRate Spring Boot API
+After=network.target
+
+[Service]
+User=ubuntu
+WorkingDirectory=/home/ubuntu
+EnvironmentFile=/etc/maxrate.env
+ExecStart=/usr/bin/java -jar /home/ubuntu/app.jar
+Restart=always
+RestartSec=10
+SuccessExitStatus=143
+
+[Install]
+WantedBy=multi-user.target
+EOF
                                 scp -i "$SSH_KEY" -o StrictHostKeyChecking=no "$APP_JAR" "$SSH_USER@$EC2_HOST:$DEPLOY_PATH"
-                                ssh -i "$SSH_KEY" -o StrictHostKeyChecking=no "$SSH_USER@$EC2_HOST" "pkill -f 'java -jar' || true; JDBC_URL='$JDBC_URL' DB_USER='$DB_USER' DB_PASS='$DB_PASS' nohup java -jar $DEPLOY_PATH > /home/ubuntu/app.log 2>&1 &"
+                                scp -i "$SSH_KEY" -o StrictHostKeyChecking=no maxrate.env "$SSH_USER@$EC2_HOST:/home/ubuntu/maxrate.env"
+                                scp -i "$SSH_KEY" -o StrictHostKeyChecking=no maxrate.service "$SSH_USER@$EC2_HOST:/home/ubuntu/maxrate.service"
+                                ssh -i "$SSH_KEY" -o StrictHostKeyChecking=no "$SSH_USER@$EC2_HOST" "sudo mv /home/ubuntu/maxrate.env /etc/maxrate.env && sudo chown root:root /etc/maxrate.env && sudo chmod 600 /etc/maxrate.env && sudo mv /home/ubuntu/maxrate.service /etc/systemd/system/maxrate.service && sudo systemctl daemon-reload && sudo systemctl enable maxrate && sudo systemctl restart maxrate && sleep 8 && if sudo systemctl is-active --quiet maxrate; then echo 'maxrate service is running'; else sudo journalctl -u maxrate -n 80 --no-pager; exit 1; fi"
                             '''
                         } else {
-                            bat '''
-                                icacls "%SSH_KEY%" /inheritance:r
-                                icacls "%SSH_KEY%" /remove:g "BUILTIN\\Users" "Users" "Everyone" "Authenticated Users" 2>nul
-                                for /f "delims=" %%A in ('powershell -NoProfile -Command "[System.Security.Principal.WindowsIdentity]::GetCurrent().User.Value"') do set CURRENT_SID=%%A
-                                icacls "%SSH_KEY%" /grant:r "*%CURRENT_SID%:R"
-                                scp -i "%SSH_KEY%" -o StrictHostKeyChecking=no "%APP_JAR%" "%SSH_USER%@%EC2_HOST%:%DEPLOY_PATH%"
-                                if errorlevel 1 exit /b 1
-                                ssh -i "%SSH_KEY%" -o StrictHostKeyChecking=no "%SSH_USER%@%EC2_HOST%" "pkill -f 'java -jar' || true; JDBC_URL='%JDBC_URL%' DB_USER='%DB_USER%' DB_PASS='%DB_PASS%' nohup java -jar %DEPLOY_PATH% > /home/ubuntu/app.log 2>&1 &"
-                                if errorlevel 1 exit /b 1
+                            powershell '''
+                                $ErrorActionPreference = "Stop"
+
+                                $key = $env:SSH_KEY
+                                $currentUser = [System.Security.Principal.WindowsIdentity]::GetCurrent().User
+                                $acl = Get-Acl -LiteralPath $key
+                                $acl.SetAccessRuleProtection($true, $false)
+                                $rule = New-Object System.Security.AccessControl.FileSystemAccessRule($currentUser, "Read", "Allow")
+                                $acl.SetAccessRule($rule)
+                                Set-Acl -LiteralPath $key -AclObject $acl
+
+                                $envFile = Join-Path $env:WORKSPACE "maxrate.env"
+                                @(
+                                    "JDBC_URL=$env:JDBC_URL",
+                                    "DB_USER=$env:DB_USER",
+                                    "DB_PASS=$env:DB_PASS",
+                                    "PORT=8080"
+                                ) | Set-Content -LiteralPath $envFile -Encoding ascii
+
+                                $serviceFile = Join-Path $env:WORKSPACE "maxrate.service"
+                                @"
+[Unit]
+Description=MaxRate Spring Boot API
+After=network.target
+
+[Service]
+User=ubuntu
+WorkingDirectory=/home/ubuntu
+EnvironmentFile=/etc/maxrate.env
+ExecStart=/usr/bin/java -jar /home/ubuntu/app.jar
+Restart=always
+RestartSec=10
+SuccessExitStatus=143
+
+[Install]
+WantedBy=multi-user.target
+"@ | Set-Content -LiteralPath $serviceFile -Encoding ascii
+
+                                scp -i $key -o StrictHostKeyChecking=no $env:APP_JAR "$env:SSH_USER@$env:EC2_HOST`:$env:DEPLOY_PATH"
+                                if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+                                scp -i $key -o StrictHostKeyChecking=no $envFile "$env:SSH_USER@$env:EC2_HOST`:/home/ubuntu/maxrate.env"
+                                if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+                                scp -i $key -o StrictHostKeyChecking=no $serviceFile "$env:SSH_USER@$env:EC2_HOST`:/home/ubuntu/maxrate.service"
+                                if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+                                $remoteCommand = "sudo mv /home/ubuntu/maxrate.env /etc/maxrate.env && sudo chown root:root /etc/maxrate.env && sudo chmod 600 /etc/maxrate.env && sudo mv /home/ubuntu/maxrate.service /etc/systemd/system/maxrate.service && sudo systemctl daemon-reload && sudo systemctl enable maxrate && sudo systemctl restart maxrate && sleep 8 && if sudo systemctl is-active --quiet maxrate; then echo 'maxrate service is running'; else sudo journalctl -u maxrate -n 80 --no-pager; exit 1; fi"
+                                ssh -i $key -o StrictHostKeyChecking=no "$env:SSH_USER@$env:EC2_HOST" $remoteCommand
+                                if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
                             '''
                         }
                     }
