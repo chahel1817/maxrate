@@ -30,7 +30,19 @@ public class RateLimitController {
     }
 
     @GetMapping
-    public ResponseEntity<List<RateLimitRule>> getAllRules() {
+    public ResponseEntity<?> getAllRules(@RequestParam(required = false) Long userId) {
+        if (userId != null) {
+            return userRepository.findById(userId)
+                    .map(user -> {
+                        java.util.Optional<RateLimitRule> ruleOpt = rateLimitRepository.findByUser(user);
+                        if (ruleOpt.isPresent()) {
+                            return ResponseEntity.ok(java.util.List.of(ruleOpt.get()));
+                        } else {
+                            return ResponseEntity.ok(java.util.List.of());
+                        }
+                    })
+                    .orElse(ResponseEntity.notFound().build());
+        }
         return ResponseEntity.ok(rateLimitRepository.findAllWithUser());
     }
 

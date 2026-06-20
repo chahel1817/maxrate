@@ -41,11 +41,11 @@ export const apiFetch = async (endpoint: string, options: any = {}) => {
 export const registerUser = (data: any) => apiFetch("/auth/register", { method: "POST", body: JSON.stringify(data) });
 export const loginUser = (data: any) => apiFetch("/auth/login", { method: "POST", body: JSON.stringify(data) });
 export const checkEmail = (email: string) => apiFetch(`/auth/check-email?email=${encodeURIComponent(email)}`);
-export const getStatsSummary = () => apiFetch("/analytics/summary");
-export const getLogs = () => apiFetch("/logs");
+export const getStatsSummary = (userId: number) => apiFetch(`/analytics/summary?userId=${userId}`);
+export const getLogs = (userId: number) => apiFetch(`/logs?userId=${userId}`);
 export const getApiKey = (userId: number) => apiFetch(`/user/api-key?userId=${userId}`);
 export const regenerateApiKey = (userId: number) => apiFetch(`/user/regenerate-key?userId=${userId}`, { method: "POST" });
-export const getAllRateLimits = () => apiFetch("/rate-limit");
+export const getAllRateLimits = (userId: number) => apiFetch(`/rate-limit?userId=${userId}`);
 export const createRateLimit = (userId: number, data: any) => apiFetch(`/rate-limit?userId=${userId}`, { method: "POST", body: JSON.stringify(data) });
 export const updateRateLimit = (id: number, data: any) => apiFetch(`/rate-limit/${id}`, { method: "PUT", body: JSON.stringify(data) });
 export const deleteRateLimit = (id: number) => apiFetch(`/rate-limit/${id}`, { method: "DELETE" });

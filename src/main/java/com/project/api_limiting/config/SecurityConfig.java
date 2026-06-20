@@ -52,9 +52,10 @@ public class SecurityConfig {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
-        // Split comma-separated origins to support multiple (e.g.
-        // "http://localhost:3000,https://maxrate.vercel.app")
-        List<String> origins = Arrays.asList(allowedOrigins.split(","));
+        // Split comma-separated origins and trim whitespace to prevent space-matching errors
+        List<String> origins = java.util.Arrays.stream(allowedOrigins.split(","))
+                .map(String::trim)
+                .collect(java.util.stream.Collectors.toList());
         configuration.setAllowedOrigins(origins);
         configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS"));
         configuration.setAllowedHeaders(Arrays.asList("Authorization", "Content-Type", "x-api-key"));

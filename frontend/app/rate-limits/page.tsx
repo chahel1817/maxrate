@@ -17,12 +17,16 @@ export default function RateLimitsPage() {
     const [statusMessage, setStatusMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
 
     useEffect(() => {
-        fetchRules();
+        const userStr = localStorage.getItem("user");
+        if (userStr) {
+            const user = JSON.parse(userStr);
+            fetchRules(user.id);
+        }
     }, []);
 
-    const fetchRules = async () => {
+    const fetchRules = async (userId: number) => {
         try {
-            const data = await getAllRateLimits();
+            const data = await getAllRateLimits(userId);
             setRules(data.map((r: any) => ({
                 id: r.id,
                 name: "API Rule " + r.id,
@@ -70,7 +74,7 @@ export default function RateLimitsPage() {
                 });
                 setStatusMessage({ type: 'success', text: "Rule created successfully!" });
             }
-            fetchRules();
+            fetchRules(user.id);
             setIsModalOpen(false);
             setTimeout(() => setStatusMessage(null), 3000);
         } catch (err) {
@@ -88,11 +92,14 @@ export default function RateLimitsPage() {
 
     const handleDeleteRule = async () => {
         if (!ruleToDelete) return;
+        const userStr = localStorage.getItem("user");
+        if (!userStr) return;
+        const user = JSON.parse(userStr);
         setLoading(true);
         try {
             await deleteRateLimit(ruleToDelete);
             setStatusMessage({ type: 'success', text: "Rule deleted successfully!" });
-            fetchRules();
+            fetchRules(user.id);
             setIsDeleteModalOpen(false);
             setTimeout(() => setStatusMessage(null), 3000);
         } catch (err) {
@@ -216,6 +223,7 @@ export default function RateLimitsPage() {
                                         className="w-full bg-slate-900 border border-slate-700 text-white rounded-xl py-3 px-4 outline-none focus:border-brand-primary transition-all"
                                         value={newLimit}
                                         onChange={(e) => setNewLimit(e.target.value)}
+                                        onFocus={(e) => e.target.select()}
                                         placeholder="e.g. 100"
                                     />
                                     <p className="text-[10px] text-slate-500 ml-1 italic">Total requests allowed before blocking.</p>
@@ -229,6 +237,7 @@ export default function RateLimitsPage() {
                                         className="w-full bg-slate-900 border border-slate-700 text-white rounded-xl py-3 px-4 outline-none focus:border-brand-primary transition-all"
                                         value={newWindow}
                                         onChange={(e) => setNewWindow(e.target.value)}
+                                        onFocus={(e) => e.target.select()}
                                         placeholder="e.g. 60"
                                     />
                                     <p className="text-[10px] text-slate-500 ml-1 italic">The period (in seconds) the limit resets over.</p>

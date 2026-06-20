@@ -53,9 +53,9 @@ export default function DashboardPage() {
     const fetchData = async (userId: number) => {
         try {
             const [summary, logsData, rulesData] = await Promise.all([
-                getStatsSummary(),
-                getLogs(),
-                getAllRateLimits()
+                getStatsSummary(userId),
+                getLogs(userId),
+                getAllRateLimits(userId)
             ]);
 
             setStats(prev => {

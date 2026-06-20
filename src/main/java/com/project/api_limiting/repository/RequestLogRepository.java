@@ -17,4 +17,8 @@ public interface RequestLogRepository extends JpaRepository<RequestLog, Long> {
             @Param("since") LocalDateTime since);
 
     long countByStatus(Integer status);
+
+    long countByUser(User user);
+
+    long countByUserAndStatus(User user, Integer status);
 }

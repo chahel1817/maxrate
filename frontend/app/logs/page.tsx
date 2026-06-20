@@ -17,8 +17,12 @@ export default function LogsPage() {
     }, []);
 
     const fetchLogs = async () => {
+        const userStr = localStorage.getItem("user");
+        if (!userStr) return;
+        const user = JSON.parse(userStr);
+
         try {
-            const data = await getLogs();
+            const data = await getLogs(user.id);
             setLogs(data.map((l: any) => ({
                 id: l.id,
                 method: l.method,
@@ -29,7 +33,7 @@ export default function LogsPage() {
                 time: new Date(l.timestamp).toLocaleString(),
             })));
         } catch (err: any) {
-            if (err.message.includes("404") || err.message.includes("403")) {
+            if (err.message && (err.message.includes("404") || err.message.includes("403"))) {
                 localStorage.removeItem("user");
                 window.location.href = "/";
             }
