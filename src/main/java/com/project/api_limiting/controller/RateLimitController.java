@@ -8,8 +8,6 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.List;
-
 @RestController
 @RequestMapping("/rate-limit")
 @RequiredArgsConstructor
@@ -20,7 +18,8 @@ public class RateLimitController {
     private final UserRepository userRepository;
 
     @PostMapping
-    public ResponseEntity<?> createRule(@RequestBody RateLimitRule rule, @RequestParam Long userId) {
+    public ResponseEntity<?> createRule(@RequestBody RateLimitRule rule, @RequestParam Long userId, @org.springframework.security.core.annotation.AuthenticationPrincipal com.project.api_limiting.entity.User authUser) {
+        if (!userId.equals(authUser.getId())) return ResponseEntity.status(403).build();
         return userRepository.findById(userId)
                 .map(user -> {
                     RateLimitRule saved = rateLimiterService.saveRule(user, rule.getLimitCount(), rule.getTimeWindow());
@@ -30,7 +29,8 @@ public class RateLimitController {
     }
 
     @GetMapping
-    public ResponseEntity<?> getAllRules(@RequestParam(required = false) Long userId) {
+    public ResponseEntity<?> getAllRules(@RequestParam(required = false) Long userId, @org.springframework.security.core.annotation.AuthenticationPrincipal com.project.api_limiting.entity.User authUser) {
+        if (userId != null && !userId.equals(authUser.getId())) return ResponseEntity.status(403).build();
         if (userId != null) {
             return userRepository.findById(userId)
                     .map(user -> {
@@ -47,9 +47,10 @@ public class RateLimitController {
     }
 
     @PutMapping("/{id}")
-    public ResponseEntity<RateLimitRule> updateRule(@PathVariable Long id, @RequestBody RateLimitRule ruleDetails) {
+    public ResponseEntity<RateLimitRule> updateRule(@PathVariable Long id, @RequestBody RateLimitRule ruleDetails, @org.springframework.security.core.annotation.AuthenticationPrincipal com.project.api_limiting.entity.User authUser) {
         return rateLimitRepository.findById(id)
                 .map(rule -> {
+                    if (!rule.getUser().getId().equals(authUser.getId())) throw new RuntimeException("Unauthorized");
                     rule.setLimitCount(ruleDetails.getLimitCount());
                     rule.setTimeWindow(ruleDetails.getTimeWindow());
                     return ResponseEntity.ok(rateLimitRepository.save(rule));
@@ -58,9 +59,10 @@ public class RateLimitController {
     }
 
     @DeleteMapping("/{id}")
-    public ResponseEntity<?> deleteRule(@PathVariable Long id) {
+    public ResponseEntity<?> deleteRule(@PathVariable Long id, @org.springframework.security.core.annotation.AuthenticationPrincipal com.project.api_limiting.entity.User authUser) {
         return rateLimitRepository.findById(id)
                 .map(rule -> {
+                    if (!rule.getUser().getId().equals(authUser.getId())) throw new RuntimeException("Unauthorized");
                     rateLimitRepository.delete(rule);
                     return ResponseEntity.ok().build();
                 })

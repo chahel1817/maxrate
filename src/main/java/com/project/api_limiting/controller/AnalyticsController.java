@@ -22,7 +22,8 @@ public class AnalyticsController {
     private final UserRepository userRepository;
 
     @GetMapping("/logs")
-    public ResponseEntity<?> getAllLogs(@RequestParam(required = false) Long userId) {
+    public ResponseEntity<?> getAllLogs(@RequestParam(required = false) Long userId, @org.springframework.security.core.annotation.AuthenticationPrincipal com.project.api_limiting.entity.User authUser) {
+        if (userId != null && !userId.equals(authUser.getId())) return ResponseEntity.status(403).build();
         if (userId != null) {
             return userRepository.findById(userId)
                     .map(user -> ResponseEntity.ok(logRepository.findByUserOrderByTimestampDesc(user)))
@@ -32,7 +33,8 @@ public class AnalyticsController {
     }
 
     @GetMapping("/analytics/summary")
-    public ResponseEntity<?> getSummary(@RequestParam(required = false) Long userId) {
+    public ResponseEntity<?> getSummary(@RequestParam(required = false) Long userId, @org.springframework.security.core.annotation.AuthenticationPrincipal com.project.api_limiting.entity.User authUser) {
+        if (userId != null && !userId.equals(authUser.getId())) return ResponseEntity.status(403).build();
         Map<String, Object> summary = new HashMap<>();
         if (userId != null) {
             return userRepository.findById(userId)
@@ -50,7 +52,9 @@ public class AnalyticsController {
 
     @GetMapping("/analytics/traffic")
     public ResponseEntity<?> getTrafficData(@RequestParam Long userId,
-                                            @RequestParam(defaultValue = "7") int buckets) {
+                                            @RequestParam(defaultValue = "7") int buckets,
+                                            @org.springframework.security.core.annotation.AuthenticationPrincipal com.project.api_limiting.entity.User authUser) {
+        if (!userId.equals(authUser.getId())) return ResponseEntity.status(403).build();
         return userRepository.findById(userId)
                 .map(user -> {
                     LocalDateTime now = LocalDateTime.now();

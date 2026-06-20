@@ -17,6 +17,7 @@ import java.util.Optional;
 public class AuthController {
 
     private final AuthService authService;
+    private final com.project.api_limiting.security.JwtUtil jwtUtil;
 
     @PostMapping("/register")
     public ResponseEntity<?> register(@Valid @RequestBody AuthRequest request) {
@@ -36,14 +37,17 @@ public class AuthController {
         }
 
         User user = authService.register(request);
-        return ResponseEntity.ok(user);
+        String token = jwtUtil.generateToken(user.getId(), user.getEmail());
+        return ResponseEntity.ok(Map.of("user", user, "token", token));
     }
 
     @PostMapping("/login")
     public ResponseEntity<?> login(@Valid @RequestBody AuthRequest request) {
-        Optional<User> user = authService.login(request);
-        if (user.isPresent()) {
-            return ResponseEntity.ok(user.get());
+        Optional<User> userOpt = authService.login(request);
+        if (userOpt.isPresent()) {
+            User user = userOpt.get();
+            String token = jwtUtil.generateToken(user.getId(), user.getEmail());
+            return ResponseEntity.ok(Map.of("user", user, "token", token));
         }
 
         // Check if the email exists to give a more helpful error

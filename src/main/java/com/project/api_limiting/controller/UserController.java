@@ -14,14 +14,16 @@ public class UserController {
     private final com.project.api_limiting.service.AuthService authService;
 
     @GetMapping("/api-key")
-    public ResponseEntity<?> getApiKey(@RequestParam Long userId) {
+    public ResponseEntity<?> getApiKey(@RequestParam Long userId, @org.springframework.security.core.annotation.AuthenticationPrincipal com.project.api_limiting.entity.User authUser) {
+        if (!userId.equals(authUser.getId())) return ResponseEntity.status(403).build();
         return userRepository.findById(userId)
                 .map(user -> ResponseEntity.ok(java.util.Map.of("apiKey", user.getApiKey())))
                 .orElse(ResponseEntity.notFound().build());
     }
 
     @PostMapping("/regenerate-key")
-    public ResponseEntity<?> regenerateApiKey(@RequestParam Long userId) {
+    public ResponseEntity<?> regenerateApiKey(@RequestParam Long userId, @org.springframework.security.core.annotation.AuthenticationPrincipal com.project.api_limiting.entity.User authUser) {
+        if (!userId.equals(authUser.getId())) return ResponseEntity.status(403).build();
         return userRepository.findById(userId)
                 .map(user -> {
                     user.setApiKey(authService.generateApiKey());

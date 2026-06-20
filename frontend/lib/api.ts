@@ -9,12 +9,22 @@ const API_BASE_URL = getApiBaseUrl();
 
 export const apiFetch = async (endpoint: string, options: any = {}) => {
     const url = `${API_BASE_URL}${endpoint}`;
+    
+    const headers: any = {
+        "Content-Type": "application/json",
+        ...options.headers,
+    };
+    
+    if (typeof window !== "undefined") {
+        const token = localStorage.getItem("token");
+        if (token) {
+            headers["Authorization"] = `Bearer ${token}`;
+        }
+    }
+
     const response = await fetch(url, {
         ...options,
-        headers: {
-            "Content-Type": "application/json",
-            ...options.headers,
-        },
+        headers,
     });
 
     const text = await response.text();

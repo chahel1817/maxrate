@@ -223,12 +223,14 @@ export default function LoginPage() {
 
         try {
             if (isLogin) {
-                const user = await loginUser({ email: formData.email, password: formData.password });
-                localStorage.setItem("user", JSON.stringify(user));
+                const res = await loginUser({ email: formData.email, password: formData.password });
+                localStorage.setItem("user", JSON.stringify(res.user));
+                localStorage.setItem("token", res.token);
                 window.location.reload();
             } else {
-                const user = await registerUser(formData);
-                localStorage.setItem("user", JSON.stringify(user));
+                const res = await registerUser(formData);
+                localStorage.setItem("user", JSON.stringify(res.user));
+                localStorage.setItem("token", res.token);
                 window.location.reload();
             }
         } catch (err: any) {
