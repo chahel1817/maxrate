@@ -81,6 +81,11 @@ export default function DashboardPage() {
 
         } catch (err: any) {
             console.error("Dashboard refresh failed", err);
+            // If the user was not found in the backend (e.g. database reset), log them out
+            if (err?.error?.includes("404") || err?.messages?.[0]?.includes("404") || err?.messages?.[0]?.includes("No static resource")) {
+                localStorage.removeItem("user");
+                window.location.href = "/";
+            }
         }
     }, []);
 
@@ -200,7 +205,7 @@ export default function DashboardPage() {
                                             : 'shadow-brand-error/30';
 
                                         return (
-                                            <div key={i} className="flex-1 flex flex-col items-center gap-2 group/bar">
+                                            <div key={i} className="flex-1 h-full flex flex-col items-center justify-end gap-2 group/bar">
                                                 {/* Value label */}
                                                 <motion.span
                                                     initial={{ opacity: 0 }}

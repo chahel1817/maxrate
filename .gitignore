@@ -40,3 +40,6 @@ build/
 ### Frontend ###
 frontend/node_modules/
 frontend/.next/
+
+### Database ###
+data/

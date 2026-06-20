@@ -74,7 +74,8 @@ public class AnalyticsController {
                                 .count();
 
                         Map<String, Object> point = new HashMap<>();
-                        point.put("time", bucketStart.toString());
+                        java.time.ZonedDateTime zdt = bucketStart.atZone(java.time.ZoneId.systemDefault());
+                        point.put("time", zdt.toInstant().toString());
                         point.put("requests", total);
                         point.put("blocked", blocked);
                         dataPoints.add(point);

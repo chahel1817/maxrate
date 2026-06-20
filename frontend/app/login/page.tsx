@@ -174,6 +174,7 @@ export default function LoginPage() {
     const [formData, setFormData] = useState({ name: "", email: "", password: "" });
     const [showPassword, setShowPassword] = useState(false);
     const [loading, setLoading] = useState(false);
+    const [longLoading, setLongLoading] = useState(false);
     const [modalMessages, setModalMessages] = useState<string[] | null>(null);
 
     // Inline field errors (shown below each input)
@@ -217,6 +218,9 @@ export default function LoginPage() {
         }
 
         setLoading(true);
+        setLongLoading(false);
+        const longLoadTimer = setTimeout(() => setLongLoading(true), 5000);
+
         try {
             if (isLogin) {
                 const user = await loginUser({ email: formData.email, password: formData.password });
@@ -239,7 +243,9 @@ export default function LoginPage() {
                 setModalMessages(["An unexpected error occurred. Please try again."]);
             }
         } finally {
+            clearTimeout(longLoadTimer);
             setLoading(false);
+            setLongLoading(false);
         }
     };
 
@@ -384,6 +390,21 @@ export default function LoginPage() {
                             </>
                         )}
                     </motion.button>
+                    
+                    <AnimatePresence>
+                        {longLoading && (
+                            <motion.div
+                                initial={{ opacity: 0, height: 0 }}
+                                animate={{ opacity: 1, height: "auto" }}
+                                exit={{ opacity: 0, height: 0 }}
+                                className="text-center overflow-hidden"
+                            >
+                                <p className="text-xs text-slate-400 font-medium pt-2">
+                                    <span className="text-brand-primary font-bold animate-pulse">Note:</span> Free tier servers may take up to 50s to wake up. Hang tight!
+                                </p>
+                            </motion.div>
+                        )}
+                    </AnimatePresence>
                 </form>
 
                 {/* ── Toggle Mode ── */}
