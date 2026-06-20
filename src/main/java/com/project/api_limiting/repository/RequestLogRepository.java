@@ -21,4 +21,6 @@ public interface RequestLogRepository extends JpaRepository<RequestLog, Long> {
     long countByUser(User user);
 
     long countByUserAndStatus(User user, Integer status);
+
+    List<RequestLog> findByUserAndTimestampAfterOrderByTimestampAsc(User user, LocalDateTime since);
 }

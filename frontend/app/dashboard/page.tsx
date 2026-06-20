@@ -1,7 +1,7 @@
 "use client";
 
 import { motion, AnimatePresence } from "framer-motion";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
@@ -15,22 +15,74 @@ import {
     ChevronRight,
     Search,
     Filter,
+    BarChart3,
 } from "lucide-react";
 
-import { getStatsSummary, getLogs, getAllRateLimits } from "@/lib/api";
+import { getStatsSummary, getLogs, getAllRateLimits, getTrafficData } from "@/lib/api";
 
 export default function DashboardPage() {
     const router = useRouter();
     const [stats, setStats] = useState([
-        { id: 'reqs', label: "Total Requests", value: "0", increase: "+12%", icon: Zap, color: "text-brand-primary" },
-        { id: 'users', label: "Active Users", value: "1", increase: "0%", icon: Users, color: "text-brand-secondary" },
-        { id: 'limited', label: "Rate Limited", value: "0", increase: "+5%", icon: ShieldAlert, color: "text-brand-error" },
-        { id: 'latency', label: "Avg Latency", value: "18ms", icon: Clock, color: "text-slate-400" },
+        { id: 'reqs', label: "Total Requests", value: "0", increase: "+0%", icon: Zap, color: "text-brand-primary" },
+        { id: 'users', label: "Unique IPs", value: "0", increase: "0%", icon: Users, color: "text-brand-secondary" },
+        { id: 'limited', label: "Rate Limited", value: "0", increase: "+0%", icon: ShieldAlert, color: "text-brand-error" },
+        { id: 'success', label: "Success Rate", value: "100%", icon: ShieldCheck, color: "text-brand-secondary" },
     ]);
 
     const [logs, setLogs] = useState<any[]>([]);
     const [rules, setRules] = useState<any[]>([]);
-    const [chartData, setChartData] = useState<number[]>([40, 60, 45, 70, 50, 85, 65]);
+    const [chartData, setChartData] = useState<{ time: string; requests: number; blocked: number }[]>([]);
+    const [chartMode, setChartMode] = useState<'requests' | 'blocked'>('requests');
+
+    const fetchData = useCallback(async (userId: number) => {
+        try {
+            const [summary, logsData, rulesData, trafficData] = await Promise.all([
+                getStatsSummary(userId),
+                getLogs(userId),
+                getAllRateLimits(userId),
+                getTrafficData(userId),
+            ]);
+
+            const totalReqs = summary.totalRequests || 0;
+            const limitedCount = summary.rateLimitedCount || 0;
+            const successCount = totalReqs - limitedCount;
+            const successRate = totalReqs > 0 ? Math.round((successCount / totalReqs) * 100) : 100;
+            const uniqueIPs = new Set(logsData.map((l: any) => l.ipAddress)).size;
+
+            setStats(prev => {
+                const updated = [...prev];
+                updated[0] = { ...updated[0], value: totalReqs.toLocaleString() };
+                updated[1] = { ...updated[1], value: uniqueIPs.toString() };
+                updated[2] = { ...updated[2], value: limitedCount.toLocaleString() };
+                updated[3] = { ...updated[3], value: `${successRate}%` };
+                return updated;
+            });
+
+            setLogs(logsData.slice(0, 8).map((l: any) => ({
+                id: l.id,
+                method: l.method,
+                path: l.endpoint,
+                ip: l.ipAddress || "127.0.0.1",
+                status: l.status === 429 ? "LIMITED" : "SUCCESS",
+                code: l.status,
+                time: new Date(l.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
+            })));
+
+            setRules(rulesData.slice(0, 3));
+
+            // Set real traffic chart data
+            if (Array.isArray(trafficData) && trafficData.length > 0) {
+                setChartData(trafficData.map((p: any) => ({
+                    time: new Date(p.time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+                    requests: p.requests || 0,
+                    blocked: p.blocked || 0,
+                })));
+            }
+
+        } catch (err: any) {
+            console.error("Dashboard refresh failed", err);
+        }
+    }, []);
 
     useEffect(() => {
         const userStr = localStorage.getItem("user");
@@ -45,49 +97,14 @@ export default function DashboardPage() {
                 const user = JSON.parse(userStr);
                 fetchData(user.id);
             }
-        }, 5000); // More frequent updates
+        }, 5000);
 
         return () => clearInterval(interval);
-    }, []);
+    }, [fetchData]);
 
-    const fetchData = async (userId: number) => {
-        try {
-            const [summary, logsData, rulesData] = await Promise.all([
-                getStatsSummary(userId),
-                getLogs(userId),
-                getAllRateLimits(userId)
-            ]);
-
-            setStats(prev => {
-                const updated = [...prev];
-                updated[0].value = (summary.totalRequests || 0).toLocaleString();
-                const limitedCount = logsData.filter((l: any) => l.status === 429).length;
-                updated[2].value = limitedCount.toLocaleString();
-                updated[1].value = new Set(logsData.map((l: any) => l.ipAddress)).size.toString();
-                return updated;
-            });
-
-            setLogs(logsData.slice(0, 8).map((l: any) => ({
-                id: l.id,
-                method: l.method,
-                path: l.endpoint,
-                ip: l.ipAddress || "127.0.0.1",
-                status: l.status === 429 ? "LIMITED" : "SUCCESS",
-                code: l.status
-            })));
-
-            setRules(rulesData.slice(0, 3));
-
-            // Randomize chart a bit for "liveness" feel
-            setChartData(prev => {
-                const next = [...prev.slice(1), 30 + Math.floor(Math.random() * 50)];
-                return next;
-            });
-
-        } catch (err: any) {
-            console.error("Dashboard refresh failed", err);
-        }
-    };
+    // Compute max value for chart scaling
+    const activeChartValues = chartData.map(d => chartMode === 'requests' ? d.requests : d.blocked);
+    const maxVal = Math.max(...activeChartValues, 1);
 
     return (
         <div className="space-y-10 max-w-7xl mx-auto pb-20">
@@ -101,9 +118,6 @@ export default function DashboardPage() {
                     <p className="text-slate-500 font-medium tracking-wide">Real-time oversight of your API distribution and performance metrics.</p>
                 </div>
                 <div className="flex gap-3">
-                    <button className="flex items-center gap-2 bg-slate-800/80 hover:bg-slate-700 text-slate-300 text-xs font-bold px-4 py-2.5 rounded-xl transition-all border border-slate-700/50">
-                        <Filter className="h-3.5 w-3.5" /> Filter Views
-                    </button>
                     <Link href="/logs" className="flex items-center gap-2 bg-brand-primary hover:bg-brand-primary/90 text-white text-xs font-bold px-5 py-2.5 rounded-xl transition-all shadow-lg shadow-brand-primary/20">
                         Full Activity <ChevronRight className="h-3.5 w-3.5" />
                     </Link>
@@ -148,92 +162,86 @@ export default function DashboardPage() {
                         animate={{ opacity: 1, scale: 1 }}
                         className="bg-brand-card border border-slate-800/80 rounded-[2.5rem] p-10 relative overflow-hidden group shadow-2xl"
                     >
-                        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-12">
+                        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-10">
                             <div>
                                 <h3 className="text-2xl font-black text-white flex items-center gap-3">
                                     <div className="h-2 w-2 rounded-full bg-brand-primary animate-pulse" /> Traffic Overview
                                 </h3>
-                                <p className="text-slate-500 text-sm mt-1 font-medium italic">Throughput monitoring across all active endpoints</p>
+                                <p className="text-slate-500 text-sm mt-1 font-medium italic">Real traffic data from the last 35 minutes (5-min buckets)</p>
                             </div>
                             <div className="flex items-center gap-3 p-1.5 bg-slate-900/50 rounded-2xl border border-slate-800/50">
-                                <button className="px-4 py-1.5 text-[10px] font-bold text-white bg-slate-800 rounded-xl shadow-sm tracking-widest uppercase">Requests</button>
-                                <button className="px-4 py-1.5 text-[10px] font-bold text-slate-500 hover:text-slate-300 tracking-widest uppercase transition-colors">Blocked</button>
+                                <button
+                                    onClick={() => setChartMode('requests')}
+                                    className={`px-4 py-1.5 text-[10px] font-bold rounded-xl tracking-widest uppercase transition-colors ${chartMode === 'requests' ? 'text-white bg-slate-800 shadow-sm' : 'text-slate-500 hover:text-slate-300'}`}
+                                >
+                                    Requests
+                                </button>
+                                <button
+                                    onClick={() => setChartMode('blocked')}
+                                    className={`px-4 py-1.5 text-[10px] font-bold rounded-xl tracking-widest uppercase transition-colors ${chartMode === 'blocked' ? 'text-white bg-slate-800 shadow-sm' : 'text-slate-500 hover:text-slate-300'}`}
+                                >
+                                    Blocked
+                                </button>
                             </div>
                         </div>
 
-                        <div className="h-[280px] w-full relative">
-                            <svg className="w-full h-full overflow-visible" preserveAspectRatio="none" viewBox="0 0 600 100">
-                                <defs>
-                                    <linearGradient id="chartFill" x1="0" y1="0" x2="0" y2="1">
-                                        <stop offset="0%" stopColor="rgb(99, 102, 241)" stopOpacity="0.4" />
-                                        <stop offset="100%" stopColor="rgb(99, 102, 241)" stopOpacity="0" />
-                                    </linearGradient>
-                                    <filter id="glow">
-                                        <feGaussianBlur stdDeviation="1.5" result="coloredBlur" />
-                                        <feMerge>
-                                            <feMergeNode in="coloredBlur" />
-                                            <feMergeNode in="SourceGraphic" />
-                                        </feMerge>
-                                    </filter>
-                                </defs>
+                        {chartData.length > 0 ? (
+                            <div className="h-[280px] w-full relative">
+                                {/* Bar chart */}
+                                <div className="flex items-end justify-between h-[240px] gap-3 px-2">
+                                    {chartData.map((d, i) => {
+                                        const val = chartMode === 'requests' ? d.requests : d.blocked;
+                                        const heightPct = maxVal > 0 ? (val / maxVal) * 100 : 0;
+                                        const barColor = chartMode === 'requests'
+                                            ? 'bg-brand-primary'
+                                            : 'bg-brand-error';
+                                        const glowColor = chartMode === 'requests'
+                                            ? 'shadow-brand-primary/30'
+                                            : 'shadow-brand-error/30';
 
-                                {[0, 25, 50, 75, 100].map(val => (
-                                    <line key={val} x1="0" y1={val} x2="600" y2={val} stroke="rgba(30, 41, 59, 0.5)" strokeWidth="0.5" />
-                                ))}
-
-                                <motion.path
-                                    initial={{ opacity: 0 }}
-                                    animate={{ opacity: 1 }}
-                                    d={`M 0 100 ${chartData.map((d, i) => `L ${i * 100} ${100 - d}`).join(' ')} L 600 100 Z`}
-                                    fill="url(#chartFill)"
-                                    className="transition-all duration-700 ease-in-out"
-                                />
-
-                                <motion.path
-                                    initial={{ pathLength: 0 }}
-                                    animate={{ pathLength: 1 }}
-                                    transition={{ duration: 2 }}
-                                    d={`M 0 ${100 - chartData[0]} ${chartData.map((d, i) => `L ${i * 100} ${100 - d}`).slice(1).join(' ')}`}
-                                    fill="none"
-                                    stroke="rgb(99, 102, 241)"
-                                    strokeWidth="3.5"
-                                    strokeLinecap="round"
-                                    strokeLinejoin="round"
-                                    filter="url(#glow)"
-                                    className="transition-all duration-700 ease-in-out"
-                                />
-
-                                {chartData.map((d, i) => (
-                                    <circle
-                                        key={i}
-                                        cx={i * 100}
-                                        cy={100 - d}
-                                        r="4"
-                                        fill="#fff"
-                                        stroke="rgb(99, 102, 241)"
-                                        strokeWidth="2.5"
-                                        className="transition-all duration-700 ease-in-out"
-                                    />
-                                ))}
-                            </svg>
-                            <div className="flex justify-between mt-6 px-1">
-                                {Array.from({ length: 7 }).map((_, i) => {
-                                    const date = new Date();
-                                    date.setMinutes(date.getMinutes() - (30 - i * 5));
-                                    const timeStr = date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-                                    return (
-                                        <span key={i} className="text-[9px] font-bold text-slate-600 uppercase tracking-widest">{timeStr}</span>
-                                    );
-                                })}
+                                        return (
+                                            <div key={i} className="flex-1 flex flex-col items-center gap-2 group/bar">
+                                                {/* Value label */}
+                                                <motion.span
+                                                    initial={{ opacity: 0 }}
+                                                    animate={{ opacity: 1 }}
+                                                    className="text-[10px] font-black text-slate-400 group-hover/bar:text-white transition-colors"
+                                                >
+                                                    {val}
+                                                </motion.span>
+                                                {/* Bar */}
+                                                <motion.div
+                                                    initial={{ height: 0 }}
+                                                    animate={{ height: `${Math.max(heightPct, 2)}%` }}
+                                                    transition={{ duration: 0.6, delay: i * 0.05, ease: "easeOut" }}
+                                                    className={`w-full rounded-xl ${barColor} shadow-lg ${glowColor} group-hover/bar:opacity-100 opacity-80 transition-opacity relative min-h-[4px]`}
+                                                    style={{ maxHeight: '100%' }}
+                                                />
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                                {/* Time labels */}
+                                <div className="flex justify-between mt-4 px-2">
+                                    {chartData.map((d, i) => (
+                                        <span key={i} className="flex-1 text-center text-[9px] font-bold text-slate-600 uppercase tracking-widest">{d.time}</span>
+                                    ))}
+                                </div>
                             </div>
-                        </div>
+                        ) : (
+                            <div className="h-[280px] w-full flex flex-col items-center justify-center text-slate-600">
+                                <BarChart3 className="h-12 w-12 mb-4 opacity-20" />
+                                <p className="text-sm font-bold">No traffic data yet</p>
+                                <p className="text-xs text-slate-700 mt-1">Make some API calls to see real-time traffic here</p>
+                            </div>
+                        )}
                     </motion.div>
 
                     <div className="bg-brand-card border border-slate-800/60 rounded-[2.5rem] overflow-hidden shadow-xl">
                         <div className="px-10 py-8 border-b border-slate-800/50 flex items-center justify-between bg-slate-900/10">
                             <div>
                                 <h3 className="text-xl font-bold text-white">Live Request Stream</h3>
-                                <p className="text-[10px] font-bold text-brand-secondary uppercase tracking-[0.25em] mt-1">Incoming traffic websocket active</p>
+                                <p className="text-[10px] font-bold text-brand-secondary uppercase tracking-[0.25em] mt-1">Latest API traffic — auto-refreshes every 5s</p>
                             </div>
                             <Link
                                 href="/logs"
@@ -247,6 +255,7 @@ export default function DashboardPage() {
                             <table className="w-full text-left border-collapse">
                                 <thead className="bg-slate-900/30 text-[9px] font-bold text-slate-500 uppercase tracking-[0.2em]">
                                     <tr>
+                                        <th className="px-10 py-5">Time</th>
                                         <th className="px-10 py-5">Call</th>
                                         <th className="px-10 py-5">Resource</th>
                                         <th className="px-10 py-5">Source</th>
@@ -264,6 +273,9 @@ export default function DashboardPage() {
                                                 exit={{ opacity: 0, scale: 0.98 }}
                                                 className="group hover:bg-white/[0.02] transition-colors"
                                             >
+                                                <td className="px-10 py-5">
+                                                    <span className="text-[11px] font-mono text-slate-500">{log.time}</span>
+                                                </td>
                                                 <td className="px-10 py-5">
                                                     <span className={`text-[10px] font-black px-2.5 py-1 rounded-lg border ${log.method === 'POST'
                                                         ? 'border-brand-primary/30 text-brand-primary bg-brand-primary/5'
@@ -298,6 +310,17 @@ export default function DashboardPage() {
                                             </motion.tr>
                                         ))}
                                     </AnimatePresence>
+                                    {logs.length === 0 && (
+                                        <tr>
+                                            <td colSpan={5} className="px-10 py-16 text-center">
+                                                <div className="flex flex-col items-center gap-3 text-slate-600">
+                                                    <Activity className="h-8 w-8 opacity-20" />
+                                                    <p className="text-sm font-bold">No requests yet</p>
+                                                    <p className="text-xs text-slate-700">Use your API key to make requests and see them here in real-time</p>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    )}
                                 </tbody >
                             </table>
                         </div>

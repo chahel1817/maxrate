@@ -42,6 +42,7 @@ export const registerUser = (data: any) => apiFetch("/auth/register", { method: 
 export const loginUser = (data: any) => apiFetch("/auth/login", { method: "POST", body: JSON.stringify(data) });
 export const checkEmail = (email: string) => apiFetch(`/auth/check-email?email=${encodeURIComponent(email)}`);
 export const getStatsSummary = (userId: number) => apiFetch(`/analytics/summary?userId=${userId}`);
+export const getTrafficData = (userId: number) => apiFetch(`/analytics/traffic?userId=${userId}&buckets=7`);
 export const getLogs = (userId: number) => apiFetch(`/logs?userId=${userId}`);
 export const getApiKey = (userId: number) => apiFetch(`/user/api-key?userId=${userId}`);
 export const regenerateApiKey = (userId: number) => apiFetch(`/user/regenerate-key?userId=${userId}`, { method: "POST" });

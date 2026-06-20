@@ -264,7 +264,7 @@ export default function RateLimitsPage() {
                     </div>
                     <h3 className="text-xl font-bold text-white mb-2">No active rules found</h3>
                     <p className="text-slate-500 max-w-sm mb-8">Start by creating your first rate limiting rule to protect your API endpoints.</p>
-                    <button className="flex items-center gap-2 text-brand-primary font-bold hover:gap-3 transition-all">
+                    <button onClick={() => handleOpenModal()} className="flex items-center gap-2 text-brand-primary font-bold hover:gap-3 transition-all">
                         Create your first rule <ArrowRight className="h-4 w-4" />
                     </button>
                 </div>

@@ -7,6 +7,8 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -44,5 +46,42 @@ public class AnalyticsController {
         summary.put("totalRequests", logRepository.count());
         summary.put("rateLimitedCount", logRepository.countByStatus(429));
         return ResponseEntity.ok(summary);
+    }
+
+    @GetMapping("/analytics/traffic")
+    public ResponseEntity<?> getTrafficData(@RequestParam Long userId,
+                                            @RequestParam(defaultValue = "7") int buckets) {
+        return userRepository.findById(userId)
+                .map(user -> {
+                    LocalDateTime now = LocalDateTime.now();
+                    // Cover the last 30 minutes, split into equal buckets
+                    int totalMinutes = buckets * 5;
+                    LocalDateTime start = now.minusMinutes(totalMinutes);
+
+                    List<RequestLog> logs = logRepository
+                            .findByUserAndTimestampAfterOrderByTimestampAsc(user, start);
+
+                    List<Map<String, Object>> dataPoints = new ArrayList<>();
+                    for (int i = 0; i < buckets; i++) {
+                        LocalDateTime bucketStart = start.plusMinutes((long) i * 5);
+                        LocalDateTime bucketEnd = start.plusMinutes((long) (i + 1) * 5);
+
+                        long total = logs.stream()
+                                .filter(l -> !l.getTimestamp().isBefore(bucketStart) && l.getTimestamp().isBefore(bucketEnd))
+                                .count();
+                        long blocked = logs.stream()
+                                .filter(l -> !l.getTimestamp().isBefore(bucketStart) && l.getTimestamp().isBefore(bucketEnd) && l.getStatus() == 429)
+                                .count();
+
+                        Map<String, Object> point = new HashMap<>();
+                        point.put("time", bucketStart.toString());
+                        point.put("requests", total);
+                        point.put("blocked", blocked);
+                        dataPoints.add(point);
+                    }
+
+                    return ResponseEntity.ok(dataPoints);
+                })
+                .orElse(ResponseEntity.notFound().build());
     }
 }
